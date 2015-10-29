@@ -1,0 +1,24 @@
+var MongoClient = require('mongodb').MongoClient,//npm install mongoose/mongodb
+    request = require('request'); //npm install request
+
+MongoClient.connect('mongodb://localhost:27017/learningThreadsDB', function (err, db) {
+    if (err) throw err;
+    var query = {'elements': 'name'};
+    var display = {'name': 1, '_id': 0};
+
+    request('https://api.coursera.org/api/catalog.v1/courses', function (err, response, body) {
+        if (!err && response.statusCode == 200) {
+            var obj = JSON.parse(body);
+
+            var jsonData = obj.elements.map(function (jsonEntry) {
+                console.log(jsonEntry.name);
+                return jsonEntry;
+            });
+
+            db.collection('courses').insert(jsonData, function(err, data) {
+                if(err) throw err;
+                db.close();
+            });
+        }
+    });
+});
