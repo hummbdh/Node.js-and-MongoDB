@@ -1,0 +1,92 @@
+var mongoose = require('mongoose');
+var request = require('request');
+var prompt = require('prompt');
+var file = require('fs');
+var dir = require('path');
+
+var db = mongoose.connection;
+var j = 0;
+var i = 0;
+var jsonData;
+var URLs
+var dataBase;
+
+prompt.start();
+prompt.get(['url', 'database'], function (err, result) {
+    if (err) throw err;
+    URLs = result.url;
+    dataBase = result.database;
+    console.log();
+    console.log('Verify: ');
+    console.log("URL Choosen: " + URLs);
+    console.log("Database Choosen: " + dataBase);
+    mongoose.connect('mongodb://localhost/' + dataBase);
+});
+
+
+db.on('error', console.error.bind(console, 'connection error:'));
+db.on('open', function () {
+
+    var stitchSchema = mongoose.Schema({
+
+        title: String,
+        specialization: String,
+        work_load: String,
+        link: String,
+        certificate: String,
+        description: String, // description of content
+        stitchType: {
+            type: String,
+            //required: '{PATH} is a required field of the Stitch document.',
+            match: [/video|video-series|course-instructorled|course-selfpaced|blogpost|tutorial|audio|image|multimedia|exercises|book|other/, 'not a valid stitch type']
+        },
+        created: {
+            type: Date,
+            default: Date.now
+        },
+        rating: {
+            weightedRating: Number,
+            numberOfRatings: Number
+        },
+
+    });
+    var Stitch = mongoose.model('Stitch', stitchSchema);
+
+    // course site URL
+
+    // Get request to API
+    //for(i = 0; i < URLs.length; i++) {
+    request(URLs, function (err, response, body) {
+
+        // JSON parser
+        if (!err && response.statusCode == 200) {
+            var obj = JSON.parse(body);
+            jsonData = obj.elements.map(function (jsonEntry) {
+                return jsonEntry;
+            });
+        }
+
+        // put json object into an array for easy manipulation of data
+        // into pre-described mongoose schema
+        var courses = [];
+
+        // insert data from API ito respective parts of the mongoose schema
+        //console.log(jsonData)
+        for (var k = 0; k < jsonData.length; k++) {
+            courses[k] = new Stitch;
+            courses[k].title = jsonData[k].name;
+            courses[k].link = 'https://www.coursera.org/course/' + jsonData[k].shortName;
+
+            // While this seems wildly inefficent as a means of storing a dataset in mongodb
+            // this is the only solution I have been able to find and get working in the
+            // last few weeks
+            console.log(courses[k])
+            courses[k].save(function (err) {
+                if (err) throw err;
+            });
+        }
+        //console.log("Number of Entries: " + jsonData.length)
+    });
+    //}
+
+});
